@@ -26,7 +26,22 @@ content-workshop words add "<Iraqi>" "<Arabic meaning>" --example "<line>"
 Show the owner the pending list (`content-workshop words pending`) and only run
 `content-workshop words approve ...` after they say yes. Then give them the printed rows to paste into the
 Google Sheet (the Drive connector can read the sheet but cannot edit cells). If the Google Sheet has
-rows the repo copy lacks, re-download it and update `dialect/iraqi_words.csv`.
+rows the repo copy lacks, run `content-workshop words sync` (adds missing rows, never overwrites; the repo
+copy carries spelling fixes the Google Sheet may not have).
+
+## How the owner runs it (keep this working)
+
+- The owner installed once with `install.sh` and only uses the dashboard (`~/Content Workshop/Content Workshop.app`).
+  No Terminal, no git on their side. Don't ask them to run commands; add a dashboard control instead.
+- **Updates reach the owner only from `main`**: the dashboard's Update button downloads the latest `main`
+  from GitHub. Work isn't "delivered" until it's merged. Before merging, they can try a branch with
+  `curl -fsSL https://raw.githubusercontent.com/Marketalse/Content_Workshop/<branch>/install.sh | CW_BRANCH=<branch> bash`.
+- Their files live outside the program: `Drafts/` (CW_OUTPUT_DIR) and `Data/` (CW_DATA_DIR: `.env`, `logs/`,
+  `words/iraqi_words.csv`, `words/new_words.csv`). Updates replace only `.program/code`. Never move user data
+  into the program folder.
+- Their word sheet copy is rebuilt from `dialect/iraqi_words.csv` on every start (repo rows win; words only they
+  approved are kept), and words queued in `dialect/new_words.csv` show up on their New words page.
+- Adding a Python dependency is fine: the updater reinstalls when `pyproject.toml` changes.
 
 ## Working rules
 

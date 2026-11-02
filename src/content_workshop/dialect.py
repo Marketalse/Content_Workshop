@@ -18,12 +18,16 @@ from pathlib import Path
 
 import yaml
 
-from .config import DIALECT_DIR
+from .config import DIALECT_DIR, INSTALLED, WORDS_DIR
 from .schemas import DialectIssue
 from .text_ar import find_phrase, normalize, words
 
-SHEET = DIALECT_DIR / "iraqi_words.csv"
-PENDING = DIALECT_DIR / "new_words.csv"
+REPO_SHEET = DIALECT_DIR / "iraqi_words.csv"
+REPO_PENDING = DIALECT_DIR / "new_words.csv"
+SHEET = WORDS_DIR / "iraqi_words.csv"       # same as REPO_SHEET in a development checkout
+PENDING = WORDS_DIR / "new_words.csv"
+GOOGLE_SHEET_ID = "11l86Ku11cR8_0mTtDtbAu4aNNltf7WIeTSF_zcQQ5dM"
+GOOGLE_CSV = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv"
 OTHER = DIALECT_DIR / "other_dialects.yaml"
 PENDING_FIELDS = ["Iraqi", "Arabic", "source", "example", "added_at", "status"]
 
@@ -189,3 +193,93 @@ def decide(iraqi_words: list[str], approve: bool,
             csv.writer(f, lineterminator="\n").writerows(new_rows)
     _write_pending(rows, pending_path)
     return new_rows
+
+
+# --- Keeping the owner's copy in step (Mac install) and pulling new rows from the Google Sheet ----
+
+def _read_rows(path: Path) -> list[list[str]]:
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8", newline="") as f:
+        return [r for r in csv.reader(f)][1:]
+
+
+def _write_rows(path: Path, rows: list[list[str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f, lineterminator="\n")
+        w.writerow(["#", "Iraqi", "Arabic"])
+        w.writerows(rows)
+
+
+def merge_sheets(base: list[list[str]], local: list[list[str]]) -> list[list[str]]:
+    """The repo copy wins for every word it has; words only the owner has are kept and numbered after it."""
+    out = [r[:3] for r in base if len(r) >= 3 and r[1].strip()]
+    seen = {normalize(r[1]) for r in out}
+    nums = [int(r[0]) for r in out if r[0].strip().isdigit()]
+    n = max(nums, default=0)
+    for r in local:
+        if len(r) < 3 or not r[1].strip() or normalize(r[1]) in seen:
+            continue
+        n += 1
+        out.append([str(n), r[1].strip(), r[2].strip()])
+        seen.add(normalize(r[1]))
+    return out
+
+
+def prepare_local_words(sheet_path: Path = SHEET, pending_path: Path = PENDING,
+                        repo_sheet: Path = REPO_SHEET, repo_pending: Path = REPO_PENDING) -> None:
+    """Mac install only: refresh the owner's word sheet from the copy that came with the latest update.
+
+    Corrections in the repo copy reach the owner, and words they approved that aren't in the repo yet stay.
+    Words queued in the repo (e.g. by a Claude session) are added to the owner's review list.
+    """
+    if sheet_path == repo_sheet:
+        return
+    _write_rows(sheet_path, merge_sheets(_read_rows(repo_sheet), _read_rows(sheet_path)))
+    local = _read_pending(pending_path)
+    have = {normalize(r["Iraqi"]) for r in local} | known_iraqi(load_sheet(sheet_path))
+    extra = [r for r in _read_pending(repo_pending)
+             if r.get("status") == "pending" and normalize(r["Iraqi"]) not in have]
+    if extra or not pending_path.exists():
+        pending_path.parent.mkdir(parents=True, exist_ok=True)
+        _write_pending(local + extra, pending_path)
+
+
+def sync_from_google(sheet_path: Path = SHEET, fetch=None) -> dict:
+    """Add words that are in the Google Sheet but missing here. Existing rows are never overwritten.
+
+    Rows whose meaning differs are only reported, because the repo copy carries spelling fixes
+    (e.g. ذهبوا, تبدأ) that the Google Sheet may not have yet.
+    """
+    if fetch is None:
+        import urllib.request
+
+        def fetch(url: str) -> str:
+            with urllib.request.urlopen(url, timeout=20) as r:
+                return r.read().decode("utf-8-sig")
+    try:
+        text = fetch(GOOGLE_CSV)
+    except Exception as e:  # shown in the dashboard
+        raise ValueError(f"Couldn't read the Google Sheet ({e}). Check the internet connection.") from e
+    google = [r for r in list(csv.reader(text.splitlines()))[1:] if len(r) >= 3 and r[1].strip()]
+    if not google:
+        raise ValueError("The Google Sheet came back empty. Is it still shared as 'anyone with the link'?")
+    mine = _read_rows(sheet_path)
+    by_word = {normalize(r[1]): r for r in mine if len(r) >= 3}
+    nums = [int(r[0]) for r in mine if r and r[0].strip().isdigit()]
+    n = max(nums, default=0)
+    added, different = [], []
+    for g in google:
+        key = normalize(g[1])
+        if key in by_word:
+            if normalize(by_word[key][2]) != normalize(g[2]):
+                different.append({"iraqi": g[1].strip(), "here": by_word[key][2], "google": g[2].strip()})
+            continue
+        n += 1
+        row = [str(n), g[1].strip(), g[2].strip()]
+        added.append(row)
+        by_word[key] = row
+    if added:
+        _write_rows(sheet_path, mine + added)
+    return {"added": added, "different": different}
