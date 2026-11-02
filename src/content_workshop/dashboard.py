@@ -25,7 +25,7 @@ from typing import Callable
 from . import checks, dialect, logbook
 from .config import DATA_DIR, ENV_FILE, FORMATS, INSTALLED, LEVELS, OUTPUT_DIR, Settings
 from .schemas import CommitteeResult, Script
-from .llm import MODELS, verify_key
+from .llm import MODELS, ignore_foreign_env, verify_key
 from .updater import Updater
 
 PAGE = Path(__file__).resolve().parent / "web" / "dashboard.html"
@@ -401,6 +401,9 @@ def serve(port: int = 8765, open_browser: bool = True, app: App | None = None) -
     url = f"http://127.0.0.1:{port}/"
     if INSTALLED:
         dialect.prepare_local_words(app.sheet_path, app.pending_path)
+    ignored = ignore_foreign_env()
+    if ignored:
+        print(f"Ignoring {', '.join(ignored)} from the environment: requests go straight to Anthropic.", flush=True)
     try:
         httpd = ThreadingHTTPServer(("127.0.0.1", port), make_handler(app, port))
     except OSError:

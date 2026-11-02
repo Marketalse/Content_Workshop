@@ -70,3 +70,24 @@ def test_fallback_only_where_supported(model, fallback):
     client = FakeClient()
     llm.LLM(Settings(model=model), client=client).ask("s", "u", DialectReport)
     assert ("fallbacks" in client.calls[0]) is fallback
+
+
+def test_requests_go_straight_to_anthropic(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://127.0.0.1:9/some-proxy")
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "sk-ant-oat01-other-tool")
+    client = llm.make_client("sk-ant-api03-mine")
+    assert str(client.base_url).startswith("https://api.anthropic.com")
+    assert client.auth_token is None and client.api_key == "sk-ant-api03-mine"
+    assert llm.ignore_foreign_env() == ["ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"]
+    assert "ANTHROPIC_BASE_URL" not in os.environ
+
+
+def test_answer_without_request_id_is_not_from_anthropic():
+    import anthropic
+    import httpx2 as httpx
+
+    def err(body, headers=None):
+        resp = httpx.Response(401, headers=headers or {}, request=httpx.Request("GET", "https://x"))
+        return anthropic.AuthenticationError("401", response=resp, body=body)
+    assert not llm._from_anthropic(err({"error": {"message": "Invalid API key."}}))
+    assert llm._from_anthropic(err({"error": {"message": "invalid x-api-key"}, "request_id": "req_1"}))
