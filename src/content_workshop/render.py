@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from .schemas import CommitteeResult, Draft
 
 FORMAT_NAMES = {
@@ -51,3 +53,13 @@ def result_md(r: CommitteeResult) -> str:
     head = [f"# {r.topic}", "", f"**Core idea:** {r.analysis.core_idea}", "",
             "**Claims to verify before posting:**", *([f"- {c}" for c in r.analysis.claims_to_verify] or ["- none"]), ""]
     return "\n".join(head) + "\n---\n\n" + "\n---\n\n".join(draft_md(d) for d in r.drafts)
+
+
+def save(r: CommitteeResult, output_dir: Path) -> Path:
+    """Write <run>.json (full detail) and <run>.md (readable). Returns the .md path."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    base = r.drafts[0].id.rsplit("-", 2)[0] if r.drafts else "run"
+    (output_dir / f"{base}.json").write_text(r.model_dump_json(indent=1), encoding="utf-8")
+    md = output_dir / f"{base}.md"
+    md.write_text(result_md(r), encoding="utf-8")
+    return md

@@ -23,21 +23,17 @@ def _list(value: str, allowed: tuple[str, ...]) -> list[str]:
 def cmd_generate(a) -> int:
     from .committee import Committee
     from .llm import LLM
-    from .render import draft_md, result_md
+    from .render import save
 
     settings = Settings()
     committee = Committee(LLM(settings), settings, wpm=a.wpm, progress=lambda m: print(f"  · {m}", file=sys.stderr))
     result = committee.run(a.topic, a.formats, a.levels)
-
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    base = result.drafts[0].id.rsplit("-", 2)[0] if result.drafts else "run"
-    (OUTPUT_DIR / f"{base}.json").write_text(result.model_dump_json(indent=1), encoding="utf-8")
-    (OUTPUT_DIR / f"{base}.md").write_text(result_md(result), encoding="utf-8")
+    md = save(result, OUTPUT_DIR)
     for d in result.drafts:
         logbook.log_draft(a.topic, d)
         print(f"{'PASS ' if d.passed else 'CHECK'}  {d.id}  critic {d.review.total if d.review else '-'}  "
               f"dialect {d.dialect.score if d.dialect else '-'}")
-    print(f"\nSaved: {OUTPUT_DIR / (base + '.md')}")
+    print(f"\nSaved: {md}")
     n = len(dialect.pending())
     if n:
         print(f"{n} new Iraqi word(s) waiting for your approval: content-workshop words pending")
@@ -100,6 +96,13 @@ def cmd_log(a) -> int:
     return 0
 
 
+def cmd_dashboard(a) -> int:
+    from .dashboard import serve
+
+    serve(port=a.port, open_browser=not a.no_browser)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="content-workshop", description="Baghdadi copywriting committee.")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -133,6 +136,11 @@ def build_parser() -> argparse.ArgumentParser:
     for m in ("views", "retention", "replies", "saves", "shares"):
         lg.add_argument(f"--{m}", type=float)
     lg.set_defaults(fn=cmd_log)
+
+    d = sub.add_parser("dashboard", help="Open the dashboard in your browser.")
+    d.add_argument("--port", type=int, default=8765)
+    d.add_argument("--no-browser", action="store_true", help="don't open a browser tab")
+    d.set_defaults(fn=cmd_dashboard)
     return p
 
 
