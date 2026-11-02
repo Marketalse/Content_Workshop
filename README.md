@@ -33,7 +33,26 @@ pip install -e ".[dev]"
 export ANTHROPIC_API_KEY=...   # or copy .env.example
 ```
 
-## Use it
+## Dashboard (no Terminal needed)
+
+On a Mac, double-click **`Start Dashboard.command`** in the project folder. The first time, it sets
+everything up (a minute or two); after that it opens straight away in your browser. Keep the small
+window it opens running while you work, and close it when you're done.
+
+If macOS says it can't open the file, right-click it → **Open** → **Open** (only needed once).
+
+In the dashboard you can:
+
+- **Create**: write a topic, pick formats and levels, and watch the committee work.
+- **Library**: read every run, copy scripts and captions, and record what you actually posted.
+- **New words**: approve or reject new Iraqi words and copy the rows for the Google Sheet.
+- **Track**: see how much you edit each draft, its results, and whether it's ready to rely on.
+- **Check text**: check a script you wrote yourself.
+- **Settings**: save your API key (stored only in `.env` on your computer).
+
+From a terminal the same thing is `content-workshop dashboard`. It only listens on your own computer.
+
+## Use it from the command line
 
 Write content:
 

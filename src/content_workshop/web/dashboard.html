@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Content Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f5f2; --panel:#ffffff; --ink:#1d1c1a; --muted:#6b6862; --line:#e4e1da;
+  --accent:#0f6e5c; --accent-ink:#ffffff; --accent-soft:#e3f1ed;
+  --warn:#9a5b00; --warn-soft:#fbf0dc; --bad:#b3261e; --bad-soft:#fbe5e3; --good:#1e7a3c; --good-soft:#e2f3e7;
+  --radius:12px; --shadow:0 1px 2px rgba(0,0,0,.05),0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#141413; --panel:#1e1d1b; --ink:#ecebe7; --muted:#a19e96; --line:#33312d;
+  --accent:#46b39b; --accent-ink:#0d1f1b; --accent-soft:#1d332d;
+  --warn:#e3a94a; --warn-soft:#3a2d17; --bad:#f08a80; --bad-soft:#3d1f1c; --good:#6fcf8e; --good-soft:#1a3324;
+  --shadow:none;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,-apple-system,sans-serif}
+.ar,[dir=rtl]{font-family:"IBM Plex Sans Arabic","Geeza Pro",Tahoma,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{max-width:1080px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{font-weight:600;font-size:17px;margin-right:auto}
+.brand small{color:var(--muted);font-weight:400;margin-left:6px}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{background:none;border:0;padding:8px 12px;border-radius:8px;color:var(--muted);font:inherit;cursor:pointer;position:relative}
+nav button:hover{color:var(--ink);background:var(--panel)}
+nav button.on{color:var(--ink);background:var(--panel);box-shadow:var(--shadow);font-weight:500}
+.badge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font-size:11px;line-height:18px;text-align:center;margin-left:4px}
+main{max-width:1080px;margin:0 auto;padding:20px 16px 60px}
+.view{display:none}.view.on{display:block}
+h2{font-size:20px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:14px}
+label.f{display:block;font-weight:500;margin:0 0 6px}
+textarea,input[type=text],input[type=number],input[type=password],select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+textarea{min-height:90px;resize:vertical}
+textarea:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.row{display:flex;gap:14px;flex-wrap:wrap}.row>*{flex:1 1 220px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;cursor:pointer;user-select:none;background:var(--bg)}
+.chip input{display:none}
+.chip:has(input:checked){background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-weight:500;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.small{padding:5px 10px;font-size:13px}
+.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.muted{color:var(--muted)}
+.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:500;background:var(--bg);border:1px solid var(--line)}
+.tag.good{background:var(--good-soft);color:var(--good);border-color:transparent}
+.tag.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.tag.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.notice{padding:12px 14px;border-radius:10px;background:var(--warn-soft);color:var(--warn);margin-bottom:14px}
+.notice.good{background:var(--good-soft);color:var(--good)}
+.notice.bad{background:var(--bad-soft);color:var(--bad)}
+.notice a{color:inherit;font-weight:600}
+.progress{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:10px 0}
+.progress>div{height:100%;background:var(--accent);width:0;transition:width .4s}
+.log{font-size:13px;color:var(--muted);max-height:160px;overflow:auto}
+.list .item{display:flex;gap:12px;align-items:center;padding:12px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.list .item:last-child{border-bottom:0}
+.list .item:hover{background:var(--bg)}
+.list .item .t{flex:1;min-width:0}
+.draft{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);margin-bottom:14px;overflow:hidden}
+.draft>.head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--bg)}
+.draft>.head b{margin-right:auto}
+.draft>.body{padding:16px}
+.script{direction:rtl;text-align:right}
+.script .hook{font-size:19px;font-weight:600;margin:0 0 14px;padding:12px 14px;border-radius:10px;background:var(--accent-soft)}
+.beat{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-top:1px dashed var(--line)}
+.beat .lbl{font-size:12px;color:var(--muted);direction:ltr;text-align:left;grid-column:2;grid-row:1/span 3;white-space:nowrap}
+.beat .sp{font-size:16px}
+.beat .os,.beat .vn{font-size:13px;color:var(--muted)}
+.beat .vn{direction:ltr;text-align:left}
+.sec{margin-top:14px}
+.sec h4{margin:0 0 6px;font-size:13px;color:var(--muted);font-weight:500;direction:ltr;text-align:left}
+ul.issues{margin:0;padding-left:18px}ul.issues li{margin:2px 0}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.stat .k{font-size:13px;color:var(--muted)}.stat .v{font-size:26px;font-weight:600}
+.meter{height:8px;border-radius:4px;background:var(--line);position:relative;margin-top:8px}
+.meter>div{height:100%;border-radius:4px;background:var(--accent)}
+.meter>i{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
+table{width:100%;border-collapse:collapse}
+td,th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:500}
+details>summary{cursor:pointer;color:var(--muted)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+.toast.on{opacity:1}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+pre.rows{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;direction:rtl;white-space:pre-wrap}
+@media (max-width:640px){.bar{gap:8px}nav button{padding:6px 8px}.beat{grid-template-columns:1fr}.beat .lbl{grid-column:1;grid-row:auto;text-align:right;direction:rtl}}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <div class="brand">Content Workshop <small>ورشة المحتوى</small></div>
+  <nav id="nav">
+    <button data-v="create" class="on">Create</button>
+    <button data-v="library">Library</button>
+    <button data-v="words">New words <span class="badge" id="wbadge" hidden></span></button>
+    <button data-v="track">Track</button>
+    <button data-v="check">Check text</button>
+    <button data-v="settings">Settings</button>
+  </nav>
+</div></header>
+
+<main>
+<!-- CREATE -->
+<section class="view on" id="v-create">
+  <h2>Create content</h2>
+  <p class="sub">Write a topic. The committee (Analyst → Strategist → Writer → Dialect Guard → Critic) writes Baghdadi scripts for every format and level you pick.</p>
+  <div id="keyWarn" class="notice" hidden>Your API key isn't set yet. <a href="#" data-go="settings">Add it in Settings</a> to start creating.</div>
+  <div class="card">
+    <label class="f" for="topic">Topic</label>
+    <textarea id="topic" dir="rtl" class="ar" placeholder="مثلاً: كيف تبدأ تبيع اونلاين بالعراق"></textarea>
+    <div class="row" style="margin-top:14px">
+      <div><label class="f">Formats</label><div class="chips" id="formats"></div></div>
+      <div><label class="f">Levels</label><div class="chips" id="levels"></div></div>
+    </div>
+    <details style="margin-top:14px"><summary>Speaking speed</summary>
+      <div style="max-width:220px;margin-top:8px"><input type="number" id="wpm" min="60" max="260" step="5"> <span class="muted">words per minute</span></div>
+    </details>
+    <div class="actions">
+      <button class="btn primary" id="goBtn">Create</button>
+      <span class="muted" id="estimate"></span>
+    </div>
+  </div>
+  <div class="card" id="jobCard" hidden>
+    <b id="jobTitle"></b>
+    <div class="progress"><div id="jobBar"></div></div>
+    <div class="log" id="jobLog"></div>
+  </div>
+</section>
+
+<!-- LIBRARY -->
+<section class="view" id="v-library">
+  <div id="libList">
+    <h2>Library</h2>
+    <p class="sub">Everything you've created. Open a run to read, copy and record what you posted.</p>
+    <div class="card list" id="runs"></div>
+  </div>
+  <div id="libRun" hidden>
+    <button class="btn small" id="backBtn">← All runs</button>
+    <div id="runBody" style="margin-top:14px"></div>
+  </div>
+</section>
+
+<!-- WORDS -->
+<section class="view" id="v-words">
+  <h2>New Iraqi words</h2>
+  <p class="sub">Words the committee used that aren't in your word sheet yet. Approve the right ones; they're added to the sheet copy and you get rows to paste into the Google Sheet.</p>
+  <div class="card">
+    <div id="wordsList"></div>
+    <div class="actions" id="wordActions" hidden>
+      <button class="btn small" id="wAll">Select all</button>
+      <button class="btn primary" id="wApprove">Approve selected</button>
+      <button class="btn danger" id="wReject">Reject selected</button>
+    </div>
+  </div>
+  <div class="card" id="pasteCard" hidden>
+    <b>Paste these rows into the Google Sheet</b>
+    <pre class="rows ar" id="pasteRows"></pre>
+    <button class="btn small" id="copyRows">Copy rows</button>
+  </div>
+  <div class="card">
+    <b>Add a word yourself</b>
+    <div class="row" style="margin-top:10px">
+      <div><label class="f">Iraqi</label><input type="text" id="nwIraqi" dir="rtl" class="ar"></div>
+      <div><label class="f">Arabic meaning</label><input type="text" id="nwArabic" dir="rtl" class="ar"></div>
+    </div>
+    <label class="f" style="margin-top:10px">Example line (optional)</label>
+    <input type="text" id="nwExample" dir="rtl" class="ar">
+    <div class="actions"><button class="btn" id="nwAdd">Add to review list</button></div>
+  </div>
+</section>
+
+<!-- TRACK -->
+<section class="view" id="v-track">
+  <h2>Track</h2>
+  <p class="sub">Is the workshop good enough to rely on? Record what you actually posted and how it did.</p>
+  <div class="grid3" id="stats"></div>
+  <div class="card" style="margin-top:14px">
+    <b>Drafts</b>
+    <div style="overflow-x:auto"><table id="draftTable"></table></div>
+  </div>
+</section>
+
+<!-- CHECK -->
+<section class="view" id="v-check">
+  <h2>Check text</h2>
+  <p class="sub">Paste a script or caption you wrote yourself. It's checked against the word sheet, blocked dialect words and AI-sounding phrases, and timed.</p>
+  <div class="card">
+    <textarea id="ckText" dir="rtl" class="ar" style="min-height:160px"></textarea>
+    <div class="actions"><button class="btn primary" id="ckBtn">Check</button></div>
+    <div id="ckOut" style="margin-top:12px"></div>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<section class="view" id="v-settings">
+  <h2>Settings</h2>
+  <p class="sub">Your key is saved only in the <code>.env</code> file on this computer. It's never uploaded to GitHub.</p>
+  <div class="card">
+    <div id="keyState" style="margin-bottom:12px"></div>
+    <label class="f" for="keyIn">Anthropic API key</label>
+    <input type="password" id="keyIn" placeholder="sk-ant-api…" autocomplete="off">
+    <p class="muted" style="font-size:13px">Get one at console.anthropic.com → API Keys → Create Key.</p>
+    <div class="actions"><button class="btn primary" id="keyBtn">Save key</button></div>
+  </div>
+  <div class="card"><span class="muted">Model:</span> <span id="modelName"></span></div>
+</section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN = "__CW_TOKEN__";
+const FORMAT_NAMES = {short_video:"Short video", long_video_story:"Long video story", story_questions:"Story questions", post:"Post"};
+const LEVEL_NAMES = {simple:"Simple", medium:"Medium", complex:"Complex"};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let STATUS = null;
+
+async function api(path, body){
+  const opt = {headers:{"X-CW-Token":TOKEN}};
+  if (body !== undefined){ opt.method = "POST"; opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  let r;
+  try { r = await fetch(path, opt); } catch(e){ throw new Error("The dashboard stopped. Start it again from the launcher."); }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ("Error " + r.status));
+  return data;
+}
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("on"),2200); }
+async function copy(text){ try{ await navigator.clipboard.writeText(text); toast("Copied"); }catch(e){ toast("Couldn't copy"); } }
+
+/* navigation */
+function show(v){
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.v===v));
+  document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", s.id==="v-"+v));
+  ({library:loadRuns, words:loadWords, track:loadTrack, settings:loadStatus})[v]?.();
+  try{ localStorage.setItem("cw-tab", v); }catch(e){}
+}
+$("#nav").addEventListener("click", e => { const b=e.target.closest("button"); if (b) show(b.dataset.v); });
+document.addEventListener("click", e => { const a=e.target.closest("[data-go]"); if (a){ e.preventDefault(); show(a.dataset.go); } });
+
+/* status */
+async function loadStatus(){
+  STATUS = await api("/api/status");
+  $("#keyWarn").hidden = STATUS.api_key_set;
+  $("#keyState").innerHTML = STATUS.api_key_set
+    ? `<span class="tag good">Key saved ${esc(STATUS.api_key_hint)}</span>`
+    : `<span class="tag warn">No key yet</span>`;
+  $("#modelName").textContent = STATUS.model;
+  const b=$("#wbadge"); b.hidden = !STATUS.pending_words; b.textContent = STATUS.pending_words;
+  return STATUS;
+}
+
+/* create */
+function chips(el, items, names, checked){
+  el.innerHTML = items.map(v => `<label class="chip"><input type="checkbox" value="${v}" ${checked.includes(v)?"checked":""}>${names[v]}</label>`).join("");
+  el.addEventListener("change", estimate);
+}
+const picked = el => [...el.querySelectorAll("input:checked")].map(i => i.value);
+function estimate(){
+  const n = picked($("#formats")).length * picked($("#levels")).length;
+  $("#estimate").textContent = n ? `${n} draft${n>1?"s":""} · usually 1–3 minutes each` : "";
+}
+$("#goBtn").onclick = async () => {
+  try{
+    $("#goBtn").disabled = true;
+    const job = await api("/api/generate", {topic:$("#topic").value, formats:picked($("#formats")), levels:picked($("#levels")), wpm:$("#wpm").value});
+    watch(job.id);
+  }catch(e){ toast(e.message); $("#goBtn").disabled = false; }
+};
+async function watch(id){
+  $("#jobCard").hidden = false;
+  for(;;){
+    let j;
+    try{ j = await api("/api/jobs/"+id); }catch(e){ $("#jobTitle").textContent = e.message; break; }
+    const pct = Math.min(95, Math.round(100 * j.log.length / j.total_steps));
+    $("#jobTitle").textContent = j.state==="running" ? `Working on: ${j.topic}` : j.state==="done" ? "Done" : "Something went wrong";
+    $("#jobBar").style.width = (j.state==="done" ? 100 : pct) + "%";
+    $("#jobLog").innerHTML = j.log.map(esc).reverse().join("<br>");
+    if (j.state === "done"){ $("#goBtn").disabled=false; loadStatus(); show("library"); openRun(j.run); break; }
+    if (j.state === "failed"){ $("#goBtn").disabled=false; $("#jobLog").innerHTML = `<div class="notice bad">${esc(j.error)}</div>`; break; }
+    await new Promise(r => setTimeout(r, 1500));
+  }
+}
+
+/* library */
+async function loadRuns(){
+  $("#libList").hidden = false; $("#libRun").hidden = true;
+  const runs = await api("/api/runs");
+  $("#runs").innerHTML = runs.length ? runs.map(r => `
+    <div class="item" data-run="${esc(r.name)}">
+      <div class="t"><div class="ar" dir="rtl" style="text-align:left">${esc(r.topic)}</div><div class="muted" style="font-size:13px">${esc(r.name)}</div></div>
+      <span class="tag ${r.passed===r.drafts?"good":"warn"}">${r.passed}/${r.drafts} passed</span>
+    </div>`).join("") : `<div class="empty">Nothing yet. <a href="#" data-go="create">Create your first piece.</a></div>`;
+}
+$("#runs").addEventListener("click", e => { const it=e.target.closest("[data-run]"); if (it) openRun(it.dataset.run); });
+$("#backBtn").onclick = loadRuns;
+
+const scoreTag = (v, max, ok) => v==null ? "" : `<span class="tag ${v>=ok?"good":"warn"}">${v}/${max}</span>`;
+async function openRun(name){
+  const r = await api("/api/runs/"+encodeURIComponent(name));
+  $("#libList").hidden = true; $("#libRun").hidden = false;
+  const claims = r.analysis.claims_to_verify || [];
+  $("#runBody").innerHTML = `
+    <div class="card">
+      <h2 class="ar" dir="rtl" style="text-align:right">${esc(r.topic)}</h2>
+      <div class="ar" dir="rtl" style="text-align:right"><b>الفكرة:</b> ${esc(r.analysis.core_idea)}</div>
+      ${claims.length ? `<div class="notice" style="margin:12px 0 0"><b>Check these before posting:</b><ul class="issues ar" dir="rtl">${claims.map(c=>`<li>${esc(c)}</li>`).join("")}</ul></div>` : ""}
+    </div>
+    ${r.drafts.map(renderDraft).join("")}`;
+  RUN = r;
+}
+let RUN = null;
+function renderDraft(d, i){
+  const s = d.script;
+  const fails = d.checks.filter(c => c.severity!=="info");
+  return `<div class="draft">
+    <div class="head">
+      <b>${FORMAT_NAMES[s.format]||s.format} · ${LEVEL_NAMES[s.level]||s.level}</b>
+      <span class="tag ${d.passed?"good":"warn"}">${d.passed?"Passed":"Needs your review"}</span>
+      <span class="muted" style="font-size:13px">Critic</span>${scoreTag(d.review?.total,100,80)}
+      <span class="muted" style="font-size:13px">Dialect</span>${scoreTag(d.dialect?.score,10,8)}
+      <button class="btn small" onclick="copy(RUN.drafts[${i}].plain_text)">Copy text</button>
+    </div>
+    <div class="body">
+      <div class="script ar">
+        <div style="font-weight:600;margin-bottom:8px">${esc(s.title)}</div>
+        <div class="hook">${esc(s.hook)}</div>
+        ${s.beats.map(b => `<div class="beat">
+          <div class="lbl">${esc(b.label)}${b.seconds?` · ${Math.round(b.seconds)}s`:""}</div>
+          <div class="sp">${esc(b.spoken)}</div>
+          ${b.on_screen_text?`<div class="os">على الشاشة: ${esc(b.on_screen_text)}</div>`:""}
+          ${b.visual_note?`<div class="vn">🎬 ${esc(b.visual_note)}</div>`:""}
+        </div>`).join("")}
+        <div class="beat"><div class="lbl">CTA</div><div class="sp"><b>${esc(s.cta)}</b></div></div>
+        ${s.sticker_questions?.length ? `<div class="sec"><h4>Sticker questions</h4><ul>${s.sticker_questions.map(q=>`<li>${esc(q)}</li>`).join("")}</ul></div>` : ""}
+        ${s.caption ? `<div class="sec"><h4>Caption <button class="btn small" onclick="copy(RUN.drafts[${i}].script.caption + '\\n\\n' + RUN.drafts[${i}].script.hashtags.map(h=>h.startsWith('#')?h:'#'+h).join(' '))">Copy</button></h4><div style="white-space:pre-wrap">${esc(s.caption)}</div></div>` : ""}
+        ${s.hashtags?.length ? `<div class="sec muted">${s.hashtags.map(h => esc(h.startsWith("#")?h:"#"+h)).join(" ")}</div>` : ""}
+      </div>
+      ${fails.length ? `<div class="sec"><h4>Automatic checks</h4><ul class="issues">${fails.map(c=>`<li><span class="tag ${c.severity==="fail"?"bad":"warn"}">${c.severity}</span> ${esc(c.check)}: <span class="ar">${esc(c.detail)}</span></li>`).join("")}</ul></div>` : ""}
+      ${d.review?.must_fix?.length ? `<div class="sec"><h4>Critic: still to fix</h4><ul class="issues ar" dir="rtl">${d.review.must_fix.map(m=>`<li>${esc(m)}</li>`).join("")}</ul></div>` : ""}
+      ${d.dialect?.issues?.length ? `<div class="sec"><h4>Dialect Guard</h4><ul class="issues ar" dir="rtl">${d.dialect.issues.map(x=>`<li>${esc(x.original)} ← ${esc(x.suggestion)} <span class="muted">(${esc(x.detected_as)})</span></li>`).join("")}</ul></div>` : ""}
+      <div class="sec">${trackBox(d)}</div>
+    </div></div>`;
+}
+
+/* recording edits + metrics (used in Library and Track) */
+function trackBox(d){
+  const id = esc(d.id);
+  const done = d.edited ? `<span class="tag ${d.edited.edit_ratio<=0.2?"good":"warn"}">Posted · ${Math.round(d.edited.edit_ratio*100)}% changed</span>` : "";
+  const m = d.metrics ? `<span class="tag">${d.metrics.views!=null?Math.round(d.metrics.views)+" views":"results saved"}</span>` : "";
+  return `<details><summary>Record what you posted ${done} ${m}</summary>
+    <div style="margin-top:10px">
+      <label class="f">The final text you posted (edit the draft below to match)</label>
+      <textarea class="ar" dir="rtl" data-k="final" style="min-height:140px">${esc(d.edited?.final_text || d.plain_text || d.text || "")}</textarea>
+      <div class="row" style="margin-top:8px"><div style="max-width:260px"><label class="f">Words you fixed for dialect</label><input type="number" min="0" data-k="fixes" value="${d.edited?.dialect_fixes ?? 0}"></div></div>
+      <div class="actions"><button class="btn primary small" onclick="saveEdit(this,'${id}')">Save posted version</button></div>
+      <label class="f" style="margin-top:16px">Results (fill in what you have)</label>
+      <div class="row">
+        ${["views","retention","replies","saves","shares"].map(k=>`<div style="flex:1 1 110px"><input type="number" min="0" step="any" data-k="m-${k}" placeholder="${k==="retention"?"retention %":k}" value="${d.metrics?.[k]!=null ? (k==="retention"? Math.round(d.metrics[k]*100) : d.metrics[k]) : ""}"></div>`).join("")}
+      </div>
+      <div class="actions"><button class="btn small" onclick="saveMetrics(this,'${id}')">Save results</button></div>
+    </div></details>`;
+}
+const field = (btn, k) => btn.closest("details").querySelector(`[data-k="${k}"]`).value;
+async function saveEdit(btn, id){
+  try{
+    const r = await api("/api/log/edited", {id, final:field(btn,"final"), dialect_fixes:field(btn,"fixes")});
+    toast(`Saved · you changed ${Math.round(r.edit_ratio*100)}% (${r.light?"light edit":"heavy edit"})`);
+  }catch(e){ toast(e.message); }
+}
+async function saveMetrics(btn, id){
+  const metrics = {}; ["views","retention","replies","saves","shares"].forEach(k => metrics[k] = field(btn, "m-"+k));
+  try{ await api("/api/log/metrics", {id, metrics}); toast("Results saved"); }catch(e){ toast(e.message); }
+}
+
+/* words */
+async function loadWords(){
+  const rows = await api("/api/words");
+  $("#wordActions").hidden = !rows.length;
+  $("#wordsList").innerHTML = rows.length ? `<table><tr><th></th><th>Iraqi</th><th>Arabic</th><th>Example</th><th>From</th></tr>${rows.map(r=>`
+    <tr><td><input type="checkbox" value="${esc(r.Iraqi)}"></td><td class="ar"><b>${esc(r.Iraqi)}</b></td><td class="ar">${esc(r.Arabic)}</td>
+    <td class="ar muted" dir="rtl">${esc(r.example)}</td><td class="muted" style="font-size:12px">${esc(r.source)}</td></tr>`).join("")}</table>`
+    : `<div class="empty">No words waiting. 👌</div>`;
+  loadStatus();
+}
+const selWords = () => [...document.querySelectorAll("#wordsList input:checked")].map(i=>i.value);
+$("#wAll").onclick = () => document.querySelectorAll("#wordsList input").forEach(i => i.checked = true);
+$("#wApprove").onclick = async () => {
+  try{
+    const r = await api("/api/words/approve", {words:selWords()});
+    $("#pasteRows").textContent = r.rows.map(x=>x.join("\t")).join("\n");
+    $("#pasteCard").hidden = !r.rows.length; toast("Approved"); loadWords();
+  }catch(e){ toast(e.message); }
+};
+$("#wReject").onclick = async () => { try{ await api("/api/words/reject", {words:selWords()}); toast("Rejected"); loadWords(); }catch(e){ toast(e.message); } };
+$("#copyRows").onclick = () => copy($("#pasteRows").textContent);
+$("#nwAdd").onclick = async () => {
+  try{
+    const r = await api("/api/words/add", {iraqi:$("#nwIraqi").value, arabic:$("#nwArabic").value, example:$("#nwExample").value});
+    toast(r.queued ? "Added to the review list" : "Already in the sheet or the list");
+    if (r.queued){ $("#nwIraqi").value=$("#nwArabic").value=$("#nwExample").value=""; loadWords(); }
+  }catch(e){ toast(e.message); }
+};
+
+/* track */
+async function loadTrack(){
+  const [rep, drafts] = await Promise.all([api("/api/report"), api("/api/drafts")]);
+  const t = rep.targets;
+  const pct = v => Math.round(v*100) + "%";
+  $("#stats").innerHTML = `
+    <div class="stat"><div class="k">Drafts reviewed</div><div class="v">${rep.reviewed} <span class="muted" style="font-size:15px">/ ${t.sample} needed</span></div>
+      <div class="meter"><div style="width:${Math.min(100,rep.reviewed/t.sample*100)}%"></div></div></div>
+    <div class="stat"><div class="k">Light edits (≤${pct(t.light_edit_max)} changed)</div><div class="v">${pct(rep.light_edit_share)} ${rep.reviewed?`<span class="tag ${rep.gate_light_edits?"good":"warn"}">target ${pct(t.light_edit_share)}</span>`:""}</div>
+      <div class="meter"><div style="width:${rep.light_edit_share*100}%"></div><i style="left:${t.light_edit_share*100}%"></i></div></div>
+    <div class="stat"><div class="k">Dialect fixes per 10 lines</div><div class="v">${rep.dialect_fixes_per_10_lines} ${rep.reviewed?`<span class="tag ${rep.gate_dialect?"good":"warn"}">target &lt; ${t.dialect_fixes_per_10_lines}</span>`:""}</div></div>
+    <div class="stat"><div class="k">Ready to rely on?</div><div class="v">${rep.product_ready?"Yes ✅":"Not yet"}</div><div class="muted" style="font-size:13px">${rep.generated} drafts created</div></div>`;
+  window.DRAFTS = drafts;
+  $("#draftTable").innerHTML = drafts.length ? `<tr><th>Topic</th><th>Format</th><th>Scores</th><th>Posted</th><th>Results</th></tr>` + drafts.map((d,i)=>`
+    <tr><td class="ar" dir="rtl" style="text-align:right">${esc(d.topic)}<div class="muted" style="font-size:12px;direction:ltr;text-align:left">${esc((d.at||"").slice(0,10))}</div></td>
+    <td>${FORMAT_NAMES[d.format]||esc(d.format)}<br><span class="muted">${LEVEL_NAMES[d.level]||esc(d.level)}</span></td>
+    <td>${scoreTag(d.critic_total,100,80)} ${scoreTag(d.dialect_score,10,8)}</td>
+    <td>${d.edited?`<span class="tag ${d.edited.edit_ratio<=0.2?"good":"warn"}">${Math.round(d.edited.edit_ratio*100)}% changed</span>`:`<span class="muted">—</span>`}</td>
+    <td>${d.metrics?.views!=null?Math.round(d.metrics.views)+" views":(d.metrics?"saved":"<span class='muted'>—</span>")}</td></tr>
+    <tr><td colspan="5" style="border-bottom:2px solid var(--line)">${trackBox(d)}</td></tr>`).join("")
+    : `<tr><td class="empty">No drafts yet.</td></tr>`;
+}
+
+/* check */
+$("#ckBtn").onclick = async () => {
+  try{
+    const r = await api("/api/check", {text:$("#ckText").value, format:"short_video", wpm:$("#wpm").value});
+    $("#ckOut").innerHTML = `<p>About <b>${r.seconds}s</b> to say.</p>` + (r.issues.length
+      ? `<ul class="issues">${r.issues.map(c=>`<li><span class="tag ${c.severity==="fail"?"bad":c.severity==="warn"?"warn":""}">${c.severity}</span> ${esc(c.check)}: <span class="ar">${esc(c.detail)}</span></li>`).join("")}</ul>`
+      : `<div class="notice good">No issues found.</div>`);
+  }catch(e){ toast(e.message); }
+};
+
+/* settings */
+$("#keyBtn").onclick = async () => {
+  try{ await api("/api/key", {key:$("#keyIn").value}); $("#keyIn").value=""; toast("Key saved"); loadStatus(); }
+  catch(e){ toast(e.message); }
+};
+
+/* start */
+(async () => {
+  try{
+    const s = await loadStatus();
+    chips($("#formats"), s.formats, FORMAT_NAMES, ["short_video"]);
+    chips($("#levels"), s.levels, LEVEL_NAMES, s.levels);
+    $("#wpm").value = s.default_wpm; estimate();
+    if (s.running.length) watch(s.running[0]);
+    let tab = "create"; try{ tab = localStorage.getItem("cw-tab") || "create"; }catch(e){}
+    if (tab !== "create") show(tab);
+  }catch(e){ document.querySelector("main").innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

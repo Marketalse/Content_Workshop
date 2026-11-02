@@ -24,7 +24,7 @@ content-workshop = "content_workshop.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-content_workshop = ["prompts/*.md"]
+content_workshop = ["prompts/*.md", "web/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
