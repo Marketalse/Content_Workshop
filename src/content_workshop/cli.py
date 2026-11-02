@@ -136,7 +136,27 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def load_dotenv(path: Path | None = None) -> None:
+    """Read KEY=value lines from the repo's .env. Variables already set in the environment win."""
+    import os
+
+    from .config import REPO_ROOT
+
+    path = path or REPO_ROOT / ".env"
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key, value = key.strip(), value.strip().strip("'\"")
+        if key and value and key not in os.environ:
+            os.environ[key] = value
+
+
 def main(argv: list[str] | None = None) -> int:
+    load_dotenv()
     a = build_parser().parse_args(argv)
     if a.cmd == "log" and a.action in ("edited", "metrics") and not a.id:
         print("log edited/metrics needs a draft id", file=sys.stderr)
