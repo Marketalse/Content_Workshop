@@ -63,6 +63,13 @@ def cmd_words(a) -> int:
             print("No words waiting.")
         for r in rows:
             print(f"{r['Iraqi']}  =  {r['Arabic']}   ({r['source']}; e.g. {r['example']})")
+    elif a.action == "sync":
+        res = dialect.sync_from_google()
+        print(f"Added {len(res['added'])} word(s) from the Google Sheet.")
+        for r in res["added"]:
+            print("  " + "\t".join(r))
+        for d in res["different"]:
+            print(f"  differs: {d['iraqi']}: here '{d['here']}', Google '{d['google']}'")
     elif a.action == "add":
         if len(a.words) != 2:
             print("usage: words add <Iraqi> <Arabic>", file=sys.stderr)
@@ -72,7 +79,7 @@ def cmd_words(a) -> int:
     else:
         rows = dialect.decide(a.words, approve=(a.action == "approve"))
         if a.action == "approve":
-            print("Added to dialect/iraqi_words.csv. Paste these rows into the Google Sheet:\n")
+            print(f"Added to {dialect.SHEET}. Paste these rows into the Google Sheet:\n")
             print("#\tIraqi\tArabic")
             for r in rows:
                 print("\t".join(r))
@@ -123,7 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.set_defaults(fn=cmd_check)
 
     w = sub.add_parser("words", help="Review new Iraqi words before they go into the sheet.")
-    w.add_argument("action", choices=["pending", "approve", "reject", "add"])
+    w.add_argument("action", choices=["pending", "approve", "reject", "add", "sync"])
     w.add_argument("words", nargs="*")
     w.add_argument("--example")
     w.set_defaults(fn=cmd_words)
@@ -145,12 +152,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def load_dotenv(path: Path | None = None) -> None:
-    """Read KEY=value lines from the repo's .env. Variables already set in the environment win."""
+    """Read KEY=value lines from .env (the repo's, or Data/.env in the Mac install). Variables already set in the environment win."""
     import os
 
-    from .config import REPO_ROOT
+    from .config import ENV_FILE
 
-    path = path or REPO_ROOT / ".env"
+    path = path or ENV_FILE
     if not path.exists():
         return
     for line in path.read_text(encoding="utf-8").splitlines():

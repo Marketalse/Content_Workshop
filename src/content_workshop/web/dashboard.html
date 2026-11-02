@@ -43,6 +43,16 @@ nav button .badge{margin-left:auto}
 nav .bottom{margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
 .badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:600;line-height:20px;text-align:center}
 .modelpill{font-size:12px;color:var(--muted);padding:0 10px}
+.upd{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--accent-line);background:var(--accent-soft);color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-align:left}
+.upd small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.upd .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+ul.news{margin:8px 0 0;padding-left:18px;font-size:14px}ul.news li{margin:3px 0}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;font-size:14px}.kv dt{color:var(--muted)}.kv dd{margin:0;overflow-wrap:anywhere}
+.mrow{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.mrow:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.mrow input{accent-color:var(--accent)}
+.mrow .p{margin-left:auto;font-size:13px;color:var(--muted);white-space:nowrap}
+.cover{position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 85%,transparent);display:grid;place-items:center;z-index:30;text-align:center;padding:16px}
 
 main{min-width:0;padding:28px 32px 70px}
 .wrap{max-width:1180px;margin:0 auto}
@@ -208,6 +218,7 @@ pre.rows{background:var(--bg);border:1px solid var(--line);border-radius:8px;pad
   .app{grid-template-columns:1fr;background:var(--bg)}
   aside.side{background:var(--side);position:sticky;z-index:5;height:auto;flex-direction:row;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 16px;border-right:0;border-bottom:1px solid var(--line)}
   .brand small,.newbtn,.modelpill,nav .grp{display:none}
+  .upd{width:auto;padding:6px 10px}.upd small{display:none}
   nav{flex-direction:row;flex:1 1 100%;overflow-x:auto;gap:4px}
   nav button{width:auto;white-space:nowrap;padding:7px 10px}
   nav .bottom{margin:0;padding:0;border:0}
@@ -252,7 +263,8 @@ pre.rows{background:var(--bg);border:1px solid var(--line);border-radius:8px;pad
     <button data-v="track"><svg class="i"><use href="#i-chart"/></svg>Track</button>
     <div class="bottom"><button data-v="settings"><svg class="i"><use href="#i-gear"/></svg>Settings</button></div>
   </nav>
-  <div class="modelpill">Model: <span id="modelSide"></span></div>
+  <button class="upd" id="updSide" data-go="settings" hidden><span class="dot"></span><span>Update ready<small id="updSideTxt"></small></span></button>
+  <div class="modelpill"><span id="verSide"></span></div>
 </aside>
 
 <main><div class="wrap">
@@ -392,16 +404,54 @@ pre.rows{background:var(--bg);border:1px solid var(--line);border-radius:8px;pad
   <div class="phead">
     <div class="eyebrow">Settings</div>
     <h1>Settings</h1>
-    <p class="sub">Your key is saved only in the <code>.env</code> file on this computer. It's never uploaded to GitHub.</p>
+    <p class="sub">Everything you can change lives here: updates, your key, the word sheet and your folders.</p>
   </div>
   <div style="max-width:620px">
     <div class="card">
       <div class="card-h"><h3>Anthropic API key</h3><span id="keyState"></span></div>
       <input type="password" id="keyIn" placeholder="sk-ant-api…" autocomplete="off" aria-label="Anthropic API key">
-      <p class="hint">Get one at console.anthropic.com → API Keys → Create Key.</p>
-      <div class="actions"><button class="btn primary" id="keyBtn">Save key</button></div>
+      <p class="hint">Get one at console.anthropic.com → API Keys → Create Key. It's saved only on this computer (in the Data folder) and never uploaded to GitHub.</p>
+      <div class="actions"><button class="btn primary" id="keyBtn">Check and save key</button><span class="hint" id="keyMsg"></span></div>
+      <div id="keyErr"></div>
     </div>
-    <div class="card"><span class="muted">Model:</span> <span id="modelName"></span></div>
+
+    <div class="card">
+      <div class="card-h"><h3>Model</h3><span class="hint">Price per 1M tokens (input / output)</span></div>
+      <div id="models" class="tpls" style="grid-template-columns:1fr"></div>
+      <p class="hint">Applies to the next drafts you create. Using: <b id="modelName"></b></p>
+    </div>
+
+    <div class="card" id="updCard">
+      <div class="card-h"><h3>Updates</h3><span id="updState"></span></div>
+      <dl class="kv"><dt>Your version</dt><dd id="verTxt">—</dd></dl>
+      <div id="updBody" class="hint" style="margin-top:10px"></div>
+      <div class="actions">
+        <button class="btn primary" id="updBtn" hidden>Update now</button>
+        <button class="btn" id="updCheck">Check again</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h3>Iraqi word sheet</h3></div>
+      <p class="hint" style="margin-top:0">Get words you added to the Google Sheet. New rows are added here; rows that already exist are never overwritten, only listed if they differ.</p>
+      <div id="syncOut"></div>
+      <div class="actions"><button class="btn" id="syncBtn">Get new words from the Google Sheet</button></div>
+    </div>
+
+    <div class="card" id="foldersCard" hidden>
+      <div class="card-h"><h3>Your folders</h3></div>
+      <dl class="kv"><dt>Drafts</dt><dd id="fDrafts"></dd><dt>Data</dt><dd id="fData"></dd></dl>
+      <div class="actions">
+        <button class="btn" data-folder="drafts">Show Drafts in Finder</button>
+        <button class="btn" data-folder="data">Show Data in Finder</button>
+      </div>
+    </div>
+
+    <div class="card" id="stopCard" hidden>
+      <div class="card-h"><h3>Stop the dashboard</h3></div>
+      <p class="hint" style="margin-top:0">It runs quietly in the background. Stop it when you're done; double-click Content Workshop to start it again.</p>
+      <div class="actions"><button class="btn danger" id="stopBtn">Stop dashboard</button></div>
+    </div>
   </div>
 </section>
 </div></main>
@@ -461,7 +511,16 @@ async function loadStatus(){
   $("#keyState").innerHTML = STATUS.api_key_set
     ? `<span class="tag good">Key saved ${esc(STATUS.api_key_hint)}</span>`
     : `<span class="tag warn">No key yet</span>`;
-  $("#modelName").textContent = $("#modelSide").textContent = STATUS.model;
+  const cur = (STATUS.models||[]).find(m => m.id === STATUS.model);
+  $("#modelName").textContent = cur ? cur.name : STATUS.model;
+  $("#models").innerHTML = (STATUS.models||[]).map(m => `<label class="mrow"><input type="radio" name="model" value="${esc(m.id)}" ${m.id===STATUS.model?"checked":""}>
+    <span><b>${esc(m.name)}</b><br><span class="hint">${esc(m.note)}</span></span><span class="p">${esc(m.price)}</span></label>`).join("");
+  const v = STATUS.version || {};
+  $("#verSide").textContent = v.installed ? `Version ${v.date || (v.sha||"").slice(0,7)}` : "Development copy";
+  $("#verTxt").textContent = v.installed ? `${v.date || "unknown date"} · ${(v.sha||"").slice(0,7)}${v.branch && v.branch!=="main" ? " · "+v.branch : ""}` : "Development copy (updated with git)";
+  $("#foldersCard").hidden = !STATUS.can_open_folders;
+  $("#stopCard").hidden = !STATUS.installed;
+  if (STATUS.folders){ $("#fDrafts").textContent = STATUS.folders.drafts; $("#fData").textContent = STATUS.folders.data; }
   const b=$("#wbadge"); b.hidden = !STATUS.pending_words; b.textContent = STATUS.pending_words;
   return STATUS;
 }
@@ -719,7 +778,75 @@ $("#ckBtn").onclick = async () => {
 
 /* settings */
 $("#keyBtn").onclick = async () => {
-  try{ await api("/api/key", {key:$("#keyIn").value}); $("#keyIn").value=""; toast("Key saved"); loadStatus(); }
+  $("#keyBtn").disabled = true; $("#keyErr").innerHTML = ""; $("#keyMsg").textContent = "Checking the key with Anthropic…";
+  try{
+    await api("/api/key", {key:$("#keyIn").value});
+    $("#keyIn").value = ""; $("#keyMsg").textContent = ""; toast("Key works and is saved"); loadStatus();
+  }catch(e){
+    $("#keyMsg").textContent = "";
+    $("#keyErr").innerHTML = `<div class="notice bad" style="margin:12px 0 0">${esc(e.message)}</div>`;
+  }
+  $("#keyBtn").disabled = false;
+};
+$("#models").addEventListener("change", async e => {
+  try{ await api("/api/model", {model:e.target.value}); await loadStatus(); toast("Model changed to " + $("#modelName").textContent); }
+  catch(err){ toast(err.message); loadStatus(); }
+});
+
+/* updates */
+let UPD = null;
+async function checkUpdates(){
+  if (!STATUS?.version?.installed){
+    $("#updState").innerHTML = ""; $("#updBody").textContent = "This copy is a development checkout, so it's updated with git, not from here.";
+    $("#updCheck").hidden = true; return;
+  }
+  $("#updState").innerHTML = `<span class="tag">Checking…</span>`;
+  try{ UPD = await api("/api/update/check"); }
+  catch(e){ $("#updState").innerHTML = `<span class="tag warn">Couldn't check</span>`; $("#updBody").textContent = e.message; return; }
+  $("#updBtn").hidden = !UPD.available; $("#updSide").hidden = !UPD.available;
+  if (UPD.available){
+    $("#updState").innerHTML = `<span class="tag good">New version ${esc(UPD.latest_date)}</span>`;
+    $("#updSideTxt").textContent = UPD.latest_date;
+    $("#updBody").innerHTML = UPD.commits.length ? `What's new:<ul class="news">${UPD.commits.map(c=>`<li>${esc(c)}</li>`).join("")}</ul>` : "";
+  } else {
+    $("#updState").innerHTML = `<span class="tag good">Up to date</span>`;
+    $("#updBody").textContent = "";
+  }
+}
+$("#updCheck").onclick = checkUpdates;
+$("#updBtn").onclick = async () => {
+  $("#updBtn").disabled = true;
+  document.body.insertAdjacentHTML("beforeend", `<div class="cover" id="cover"><div><div class="big-ic" style="margin:0 auto 12px;width:52px;height:52px;border-radius:14px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center">${icon("i-spark")}</div><b>Updating…</b><p class="muted">Downloading the new version. Your drafts and data aren't touched.</p></div></div>`);
+  try{
+    const r = await api("/api/update/apply", {});
+    if (!r.updated){ $("#cover").remove(); toast("Already up to date"); $("#updBtn").disabled=false; return checkUpdates(); }
+    $("#cover b").textContent = "Restarting…";
+    for (let i = 0; i < 80; i++){
+      await new Promise(res => setTimeout(res, 500));
+      try{ const h = await fetch("/healthz", {cache:"no-store"}); if (h.ok && i > 1){ location.reload(); return; } }catch(e){}
+    }
+    $("#cover b").textContent = "Updated. Double-click Content Workshop to open it again.";
+  }catch(e){ $("#cover")?.remove(); $("#updBtn").disabled=false; toast(e.message); }
+};
+
+/* word sheet, folders, stop */
+$("#syncBtn").onclick = async () => {
+  $("#syncBtn").disabled = true;
+  try{
+    const r = await api("/api/words/sync", {});
+    $("#syncOut").innerHTML = (r.added.length
+      ? `<div class="notice good">Added ${r.added.length} word${r.added.length>1?"s":""}: <span class="ar">${r.added.map(x=>esc(x[1])).join("، ")}</span></div>`
+      : `<div class="notice good">No new words in the Google Sheet.</div>`)
+      + (r.different.length ? `<details><summary>${r.different.length} row${r.different.length>1?"s":""} differ (kept as they are here)</summary><table style="margin-top:8px"><tr><th>Iraqi</th><th>Here</th><th>Google Sheet</th></tr>${r.different.map(d=>`<tr><td class="ar">${esc(d.iraqi)}</td><td class="ar">${esc(d.here)}</td><td class="ar">${esc(d.google)}</td></tr>`).join("")}</table></details>` : "");
+  }catch(e){ toast(e.message); }
+  $("#syncBtn").disabled = false;
+};
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-folder]"); if (!b) return;
+  try{ await api("/api/open-folder", {which:b.dataset.folder}); }catch(err){ toast(err.message); }
+});
+$("#stopBtn").onclick = async () => {
+  try{ await api("/api/stop", {}); document.querySelector("main").innerHTML = `<div class="empty" style="padding:80px 16px"><b>The dashboard is stopped.</b><p>Double-click Content Workshop to open it again.</p></div>`; }
   catch(e){ toast(e.message); }
 };
 
@@ -731,6 +858,7 @@ $("#keyBtn").onclick = async () => {
     chips($("#levels"), s.levels, LEVEL_NAMES, s.levels);
     $("#wpm").value = s.default_wpm; estimate();
     if (s.running.length) watch(s.running[0]);
+    checkUpdates();
     let tab = "create"; try{ tab = localStorage.getItem("cw-tab") || "create"; }catch(e){}
     if (tab !== "create") show(tab);
   }catch(e){ document.querySelector("main").innerHTML = `<div class="notice bad" style="margin:24px">${esc(e.message)}</div>`; }

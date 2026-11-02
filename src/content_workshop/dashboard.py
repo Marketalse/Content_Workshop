@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import subprocess
+import sys
 import threading
 import traceback
 import uuid
@@ -21,8 +23,10 @@ from pathlib import Path
 from typing import Callable
 
 from . import checks, dialect, logbook
-from .config import FORMATS, LEVELS, OUTPUT_DIR, REPO_ROOT, Settings
+from .config import DATA_DIR, ENV_FILE, FORMATS, INSTALLED, LEVELS, OUTPUT_DIR, Settings
 from .schemas import CommitteeResult, Script
+from .llm import MODELS, ignore_foreign_env, verify_key
+from .updater import Updater
 
 PAGE = Path(__file__).resolve().parent / "web" / "dashboard.html"
 
@@ -43,7 +47,12 @@ class App:
     log_path: Path = logbook.LOG
     sheet_path: Path = dialect.SHEET
     pending_path: Path = dialect.PENDING
-    env_path: Path = REPO_ROOT / ".env"
+    env_path: Path = ENV_FILE
+    data_dir: Path = DATA_DIR
+    updater: Updater = field(default_factory=Updater)
+    verify_key: Callable[[str], None] = field(default_factory=lambda: verify_key)  # checked with Anthropic before saving
+    on_restart: Callable | None = None   # set by serve(): restart into the updated program
+    on_shutdown: Callable | None = None  # set by serve(): stop the dashboard
     make_committee: Callable = _default_committee
     token: str = field(default_factory=lambda: secrets.token_urlsafe(24))
     jobs: dict = field(default_factory=dict)
@@ -57,26 +66,79 @@ class App:
             "api_key_set": bool(key),
             "api_key_hint": f"…{key[-4:]}" if len(key) > 8 else "",
             "model": Settings().model,
+            "models": [{"id": k, **v} for k, v in MODELS.items()],
             "formats": list(FORMATS),
             "levels": list(LEVELS),
             "default_wpm": checks.DEFAULT_WPM,
             "pending_words": len(dialect.pending(self.pending_path)),
-            "running": [j["id"] for j in self.jobs.values() if j["state"] == "running"],
+            "running": self._running(),
+            "version": self.updater.current(),
+            "installed": INSTALLED,
+            "can_open_folders": INSTALLED and sys.platform == "darwin",
+            "folders": {"drafts": str(self.output_dir), "data": str(self.data_dir)},
         }
 
-    def save_key(self, key: str) -> dict:
-        key = key.strip()
-        if not key.startswith("sk-ant-") or any(c.isspace() for c in key):
-            raise ValueError("That doesn't look like an Anthropic API key (it starts with sk-ant-).")
+    def _running(self) -> list[str]:
+        return [j["id"] for j in self.jobs.values() if j["state"] == "running"]
+
+    # -- updates, folders, stop --------------------------------------------------------------
+
+    def update_check(self) -> dict:
+        return self.updater.check()
+
+    def update_apply(self) -> dict:
+        if self._running():
+            raise ValueError("Wait until the current drafts are finished, then update.")
+        res = self.updater.apply()
+        if res.get("updated") and self.on_restart:
+            threading.Timer(0.6, self.on_restart).start()
+            res["restarting"] = True
+        return res
+
+    def open_folder(self, which: str) -> dict:
+        path = {"drafts": self.output_dir, "data": self.data_dir}.get(which)
+        if path is None:
+            raise ValueError("Unknown folder.")
+        if sys.platform != "darwin":
+            raise ValueError(f"Open this folder yourself: {path}")
+        path.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["open", str(path)], check=False)
+        return {"opened": str(path)}
+
+    def stop(self) -> dict:
+        if self._running():
+            raise ValueError("Drafts are still being written. Stop after they finish.")
+        if self.on_shutdown:
+            threading.Timer(0.3, self.on_shutdown).start()
+        return {"stopping": True}
+
+    def _set_env(self, name: str, value: str) -> None:
+        """Save NAME=value in the .env file (Data/.env in the Mac install) and use it right away."""
+        self.env_path.parent.mkdir(parents=True, exist_ok=True)
         lines = self.env_path.read_text(encoding="utf-8").splitlines() if self.env_path.exists() else []
-        lines = [ln for ln in lines if not ln.strip().startswith("ANTHROPIC_API_KEY=")]
-        lines.append(f"ANTHROPIC_API_KEY={key}")
+        lines = [ln for ln in lines if not ln.strip().startswith(f"{name}=")]
+        lines.append(f"{name}={value}")
         self.env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         try:
             os.chmod(self.env_path, 0o600)
         except OSError:
             pass
-        os.environ["ANTHROPIC_API_KEY"] = key
+        os.environ[name] = value
+
+    def save_key(self, key: str) -> dict:
+        # People often copy a little extra: quotes, "ANTHROPIC_API_KEY=", spaces or line breaks.
+        key = "".join(key.split()).strip("'\"")
+        key = key.removeprefix("ANTHROPIC_API_KEY=").strip("'\"")
+        if not key.startswith("sk-ant-"):
+            raise ValueError("That doesn't look like an Anthropic API key (it starts with sk-ant-api).")
+        self.verify_key(key)
+        self._set_env("ANTHROPIC_API_KEY", key)
+        return self.status()
+
+    def save_model(self, model: str) -> dict:
+        if model not in MODELS:
+            raise ValueError("Unknown model.")
+        self._set_env("CW_MODEL", model)
         return self.status()
 
     # -- generate ----------------------------------------------------------------------------
@@ -209,6 +271,9 @@ class App:
         rows = dialect.decide(words, approve, self.sheet_path, self.pending_path)
         return {"rows": rows}
 
+    def sync_words(self) -> dict:
+        return dialect.sync_from_google(self.sheet_path)
+
     def add_word(self, iraqi: str, arabic: str, example: str) -> dict:
         if not iraqi.strip() or not arabic.strip():
             raise ValueError("Fill in both the Iraqi word and its Arabic meaning.")
@@ -276,6 +341,8 @@ def make_handler(app: App, port: int):
             if not self._guard():
                 return
             path = self.path.split("?", 1)[0]
+            if path == "/healthz":  # lets the Mac app see the dashboard is already running
+                return self._json({"app": "content-workshop"})
             if path in ("/", "/index.html"):
                 html = PAGE.read_text(encoding="utf-8").replace("__CW_TOKEN__", app.token)
                 return self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
@@ -285,6 +352,7 @@ def make_handler(app: App, port: int):
                 "/api/drafts": app.drafts,
                 "/api/report": app.report,
                 "/api/words": app.words,
+                "/api/update/check": app.update_check,
             }
             if path in routes:
                 return self._call(routes[path])
@@ -303,6 +371,7 @@ def make_handler(app: App, port: int):
                 return self._json({"error": "Bad request."}, HTTPStatus.BAD_REQUEST)
             routes = {
                 "/api/key": lambda: app.save_key(b.get("key", "")),
+                "/api/model": lambda: app.save_model(b.get("model", "")),
                 "/api/generate": lambda: app.start_generate(b.get("topic", ""), b.get("formats", []),
                                                             b.get("levels", []),
                                                             float(b.get("wpm") or checks.DEFAULT_WPM)),
@@ -315,6 +384,10 @@ def make_handler(app: App, port: int):
                 "/api/log/edited": lambda: app.log_edited(b.get("id", ""), b.get("final", ""),
                                                           int(b.get("dialect_fixes") or 0)),
                 "/api/log/metrics": lambda: app.log_metrics(b.get("id", ""), b.get("metrics", {})),
+                "/api/words/sync": app.sync_words,
+                "/api/update/apply": app.update_apply,
+                "/api/open-folder": lambda: app.open_folder(b.get("which", "")),
+                "/api/stop": app.stop,
             }
             if self.path in routes:
                 return self._call(routes[self.path])
@@ -326,16 +399,30 @@ def make_handler(app: App, port: int):
 def serve(port: int = 8765, open_browser: bool = True, app: App | None = None) -> None:
     app = app or App()
     url = f"http://127.0.0.1:{port}/"
+    if INSTALLED:
+        dialect.prepare_local_words(app.sheet_path, app.pending_path)
+    ignored = ignore_foreign_env()
+    if ignored:
+        print(f"Ignoring {', '.join(ignored)} from the environment: requests go straight to Anthropic.", flush=True)
     try:
         httpd = ThreadingHTTPServer(("127.0.0.1", port), make_handler(app, port))
     except OSError:
-        # Most likely the dashboard is already running in another window: just show it.
+        # Most likely the dashboard is already running: just show it.
         print(f"The dashboard seems to be open already: {url}")
         if open_browser:
             webbrowser.open(url)
         return
-    print(f"Content Workshop dashboard: {url}")
-    print("Keep this window open while you use it. Close it (or press Ctrl+C) to stop.")
+
+    def restart() -> None:  # after an update: start again on the new code, same port and settings
+        httpd.server_close()
+        os.execv(sys.executable, [sys.executable, "-m", "content_workshop", "dashboard",
+                                  "--no-browser", "--port", str(port)])
+
+    app.on_restart = restart
+    app.on_shutdown = httpd.shutdown
+    print(f"Content Workshop dashboard: {url}", flush=True)
+    if not INSTALLED:
+        print("Keep this window open while you use it. Close it (or press Ctrl+C) to stop.")
     if open_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     try:

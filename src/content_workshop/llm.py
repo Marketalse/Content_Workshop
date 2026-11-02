@@ -6,6 +6,7 @@ Pydantic object. Tests swap this class for a fake with the same method.
 
 from __future__ import annotations
 
+import os
 from typing import Protocol, TypeVar
 
 import anthropic
@@ -16,6 +17,80 @@ from .config import Settings
 T = TypeVar("T", bound=BaseModel)
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+
+# Models the owner can pick in Settings. Prices are per 1M tokens (input / output), Claude API.
+MODELS = {
+    "claude-haiku-5-5": {"name": "Claude Haiku 5.5", "price": "$0.10 / $0.50", "note": "Cheapest. Good for trying things out."},
+    "claude-sonnet-5-5": {"name": "Claude Sonnet 5.5", "price": "$2 / $10", "note": "Middle option."},
+    "claude-opus-5-5": {"name": "Claude Opus 5.5", "price": "$4 / $20", "note": "Strongest writing and dialect judgement."},
+}
+
+
+def supports_fallback(model: str) -> bool:
+    """Server-side refusal fallback exists for Opus/Sonnet/Fable; Haiku 5.5 has none (sending it is an error)."""
+    return not model.startswith("claude-haiku")
+
+
+API_URL = "https://api.anthropic.com"
+# Settings other tools put in a Terminal environment that would send our requests (and the key)
+# somewhere else, or add a second credential. The dashboard ignores them.
+FOREIGN_ENV = ("ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN")
+
+
+def ignore_foreign_env() -> list[str]:
+    """Drop FOREIGN_ENV from this process. Returns the names that were set (for the log)."""
+    return [name for name in FOREIGN_ENV if os.environ.pop(name, None) is not None]
+
+
+def make_client(key: str | None, **kw) -> anthropic.Anthropic:
+    """A client that talks to Anthropic directly, with this API key as its only credential."""
+    client = anthropic.Anthropic(api_key=key, base_url=API_URL, **kw)
+    client.auth_token = None  # never send a sign-in token alongside the key
+    return client
+
+
+def _why(e: anthropic.APIStatusError) -> str:
+    """The API's own one-line reason (e.g. 'invalid x-api-key'), without the raw JSON around it."""
+    body = e.body if isinstance(e.body, dict) else {}
+    return (body.get("error") or {}).get("message") or e.message
+
+
+def _from_anthropic(e: anthropic.APIStatusError) -> bool:
+    """Real Anthropic error responses always carry a request id."""
+    body = e.body if isinstance(e.body, dict) else {}
+    return bool(body.get("request_id") or e.response.headers.get("request-id"))
+
+
+NOT_ANTHROPIC = ("That answer didn't come from Anthropic's servers, so the key wasn't really checked. A proxy, "
+                 "VPN or network filter on this Mac is answering instead; turn it off and try again.")
+
+
+def verify_key(key: str) -> None:
+    """Check a key with the Anthropic API before saving it (listing models is free).
+
+    Raises ValueError with a plain explanation when the key is the wrong kind or is rejected.
+    Network trouble is not treated as a bad key.
+    """
+    if key.startswith("sk-ant-admin"):
+        raise ValueError("That's an Admin key, which can't write content. In console.anthropic.com go to "
+                         "API Keys → Create Key and paste that one (it starts with sk-ant-api).")
+    if key.startswith(("sk-ant-oat", "sk-ant-ort", "sk-ant-sid")):
+        raise ValueError("That's a sign-in token from the Claude app or Claude Code, not an API key. In "
+                         "console.anthropic.com go to API Keys → Create Key (it starts with sk-ant-api).")
+    client = make_client(key, max_retries=1, timeout=20)
+    try:
+        client.models.list(limit=1)
+    except anthropic.APIStatusError as e:
+        if not _from_anthropic(e):
+            raise ValueError(f"{NOT_ANTHROPIC} (It said: {_why(e)})") from e
+        if not isinstance(e, (anthropic.AuthenticationError, anthropic.PermissionDeniedError)):
+            return  # e.g. Anthropic briefly overloaded: the key itself was accepted
+        if isinstance(e, anthropic.PermissionDeniedError):
+            raise ValueError(f"This key isn't allowed to use the API ({_why(e)}).") from e
+        raise ValueError(f"Anthropic rejected this key ({_why(e)}). Copy it again from console.anthropic.com "
+                         "→ API Keys; a key that was deleted or disabled there stops working.") from e
+    except anthropic.APIConnectionError:
+        return  # offline: can't tell; save it and let the first run say more
 
 
 class SupportsAsk(Protocol):
@@ -29,11 +104,16 @@ class RefusalError(RuntimeError):
 class LLM:
     def __init__(self, settings: Settings | None = None, client: anthropic.Anthropic | None = None):
         self.settings = settings or Settings()
-        self.client = client or anthropic.Anthropic()
+        # Only the saved key is used (never a sign-in token that happens to be in the environment).
+        self.client = client or make_client(os.environ.get("ANTHROPIC_API_KEY") or None)
         self.usage: list[dict] = []
 
     def ask(self, system: str, user: str, schema: type[T]) -> T:
         s = self.settings
+        extra = {}
+        if supports_fallback(s.model):
+            # If a request is declined, the API retries it on a fallback model in the same call.
+            extra = {"betas": [FALLBACK_BETA], "fallbacks": "default"}
         try:
             response = self.client.beta.messages.parse(
                 model=s.model,
@@ -43,16 +123,17 @@ class LLM:
                 output_format=schema,
                 thinking={"type": "adaptive"},
                 output_config={"effort": s.effort},
-                # If a request is declined, the API retries it on a fallback model in the same call.
-                betas=[FALLBACK_BETA],
-                fallbacks="default",
+                **extra,
             )
         except anthropic.RateLimitError as e:
             raise RuntimeError("Rate limited by the Anthropic API; try again shortly.") from e
         except anthropic.AuthenticationError as e:
-            raise RuntimeError("ANTHROPIC_API_KEY is missing or invalid.") from e
+            if not _from_anthropic(e):
+                raise RuntimeError(f"{NOT_ANTHROPIC} (It said: {_why(e)})") from e
+            raise RuntimeError(f"Anthropic rejected the API key ({_why(e)}). Save a new key in Settings; "
+                               "it's checked before it's saved.") from e
         except anthropic.APIStatusError as e:
-            raise RuntimeError(f"Anthropic API error {e.status_code}: {e.message}") from e
+            raise RuntimeError(f"Anthropic API error {e.status_code}: {_why(e)}") from e
         except anthropic.APIConnectionError as e:
             raise RuntimeError("Could not reach the Anthropic API.") from e
 

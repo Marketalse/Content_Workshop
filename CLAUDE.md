@@ -26,13 +26,31 @@ content-workshop words add "<Iraqi>" "<Arabic meaning>" --example "<line>"
 Show the owner the pending list (`content-workshop words pending`) and only run
 `content-workshop words approve ...` after they say yes. Then give them the printed rows to paste into the
 Google Sheet (the Drive connector can read the sheet but cannot edit cells). If the Google Sheet has
-rows the repo copy lacks, re-download it and update `dialect/iraqi_words.csv`.
+rows the repo copy lacks, run `content-workshop words sync` (adds missing rows, never overwrites; the repo
+copy carries spelling fixes the Google Sheet may not have).
+
+## How the owner runs it (keep this working)
+
+- The owner installed once with `install.sh` and only uses the dashboard (`~/Content Workshop/Content Workshop.app`).
+  No Terminal, no git on their side. Don't ask them to run commands; add a dashboard control instead.
+- **Updates reach the owner only from `main`**: the dashboard's Update button downloads the latest `main`
+  from GitHub. Work isn't "delivered" until it's merged. Before merging, they can try a branch with
+  `curl -fsSL https://raw.githubusercontent.com/Marketalse/Content_Workshop/<branch>/install.sh | CW_BRANCH=<branch> bash`.
+- Their files live outside the program: `Drafts/` (CW_OUTPUT_DIR) and `Data/` (CW_DATA_DIR: `.env`, `logs/`,
+  `words/iraqi_words.csv`, `words/new_words.csv`). Updates replace only `.program/code`. Never move user data
+  into the program folder.
+- Their word sheet copy is rebuilt from `dialect/iraqi_words.csv` on every start (repo rows win; words only they
+  approved are kept), and words queued in `dialect/new_words.csv` show up on their New words page.
+- Adding a Python dependency is fine: the updater reinstalls when `pyproject.toml` changes.
 
 ## Working rules
 
 - Never invent numbers, results, clients or quotes in scripts; use `{{رقمك}}` placeholders.
 - Nothing is ever posted automatically. The owner records and posts.
 - Run `python -m pytest -q` before committing. Tests use a fake model and need no API key.
-- Model calls go through `src/content_workshop/llm.py` only (default `claude-opus-5-5`, adaptive thinking,
-  structured outputs, server-side refusal fallback).
+- Model calls go through `src/content_workshop/llm.py` only (adaptive thinking, structured outputs).
+  Default model is `claude-haiku-5-5` (the owner's choice, for cost); they switch to Sonnet 5.5 / Opus 5.5 in
+  Settings (saved as `CW_MODEL`). Server-side refusal fallback is sent only for models that support it (not Haiku).
+- The API key is checked with Anthropic before it's saved, and only `Data/.env` counts in the Mac install
+  (the launcher ignores keys/tokens from the Terminal environment).
 - Material adapted from instagram-agent-skill (MIT) is listed in `THIRD_PARTY_NOTICES.md`; keep it updated.
