@@ -32,7 +32,8 @@ FORMATS = ("short_video", "long_video_story", "story_questions", "post")
 
 @dataclass(frozen=True)
 class Settings:
-    model: str = field(default_factory=lambda: os.getenv("CW_MODEL", "claude-opus-5-5"))
+    # Haiku 5.5 by default (the owner's choice, to keep costs low); Sonnet / Opus can be picked in Settings.
+    model: str = field(default_factory=lambda: os.getenv("CW_MODEL", "claude-haiku-5-5"))
     effort: str = field(default_factory=lambda: os.getenv("CW_EFFORT", "high"))
     max_revisions: int = field(default_factory=lambda: int(os.getenv("CW_MAX_REVISIONS", "2")))
     max_tokens: int = 16000

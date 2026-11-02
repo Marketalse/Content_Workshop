@@ -25,6 +25,7 @@ from typing import Callable
 from . import checks, dialect, logbook
 from .config import DATA_DIR, ENV_FILE, FORMATS, INSTALLED, LEVELS, OUTPUT_DIR, Settings
 from .schemas import CommitteeResult, Script
+from .llm import MODELS, verify_key
 from .updater import Updater
 
 PAGE = Path(__file__).resolve().parent / "web" / "dashboard.html"
@@ -49,6 +50,7 @@ class App:
     env_path: Path = ENV_FILE
     data_dir: Path = DATA_DIR
     updater: Updater = field(default_factory=Updater)
+    verify_key: Callable[[str], None] = field(default_factory=lambda: verify_key)  # checked with Anthropic before saving
     on_restart: Callable | None = None   # set by serve(): restart into the updated program
     on_shutdown: Callable | None = None  # set by serve(): stop the dashboard
     make_committee: Callable = _default_committee
@@ -64,6 +66,7 @@ class App:
             "api_key_set": bool(key),
             "api_key_hint": f"…{key[-4:]}" if len(key) > 8 else "",
             "model": Settings().model,
+            "models": [{"id": k, **v} for k, v in MODELS.items()],
             "formats": list(FORMATS),
             "levels": list(LEVELS),
             "default_wpm": checks.DEFAULT_WPM,
@@ -109,19 +112,33 @@ class App:
             threading.Timer(0.3, self.on_shutdown).start()
         return {"stopping": True}
 
-    def save_key(self, key: str) -> dict:
-        key = key.strip()
-        if not key.startswith("sk-ant-") or any(c.isspace() for c in key):
-            raise ValueError("That doesn't look like an Anthropic API key (it starts with sk-ant-).")
+    def _set_env(self, name: str, value: str) -> None:
+        """Save NAME=value in the .env file (Data/.env in the Mac install) and use it right away."""
+        self.env_path.parent.mkdir(parents=True, exist_ok=True)
         lines = self.env_path.read_text(encoding="utf-8").splitlines() if self.env_path.exists() else []
-        lines = [ln for ln in lines if not ln.strip().startswith("ANTHROPIC_API_KEY=")]
-        lines.append(f"ANTHROPIC_API_KEY={key}")
+        lines = [ln for ln in lines if not ln.strip().startswith(f"{name}=")]
+        lines.append(f"{name}={value}")
         self.env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         try:
             os.chmod(self.env_path, 0o600)
         except OSError:
             pass
-        os.environ["ANTHROPIC_API_KEY"] = key
+        os.environ[name] = value
+
+    def save_key(self, key: str) -> dict:
+        # People often copy a little extra: quotes, "ANTHROPIC_API_KEY=", spaces or line breaks.
+        key = "".join(key.split()).strip("'\"")
+        key = key.removeprefix("ANTHROPIC_API_KEY=").strip("'\"")
+        if not key.startswith("sk-ant-"):
+            raise ValueError("That doesn't look like an Anthropic API key (it starts with sk-ant-api).")
+        self.verify_key(key)
+        self._set_env("ANTHROPIC_API_KEY", key)
+        return self.status()
+
+    def save_model(self, model: str) -> dict:
+        if model not in MODELS:
+            raise ValueError("Unknown model.")
+        self._set_env("CW_MODEL", model)
         return self.status()
 
     # -- generate ----------------------------------------------------------------------------
@@ -354,6 +371,7 @@ def make_handler(app: App, port: int):
                 return self._json({"error": "Bad request."}, HTTPStatus.BAD_REQUEST)
             routes = {
                 "/api/key": lambda: app.save_key(b.get("key", "")),
+                "/api/model": lambda: app.save_model(b.get("model", "")),
                 "/api/generate": lambda: app.start_generate(b.get("topic", ""), b.get("formats", []),
                                                             b.get("levels", []),
                                                             float(b.get("wpm") or checks.DEFAULT_WPM)),

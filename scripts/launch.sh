@@ -6,6 +6,9 @@ ROOT="$(dirname "$PROG")"
 PORT=8765
 URL="http://127.0.0.1:$PORT/"
 export CW_PROGRAM_DIR="$PROG" CW_DATA_DIR="$ROOT/Data" CW_OUTPUT_DIR="$ROOT/Drafts"
+# Only the key saved in the dashboard (Data/.env) counts: ignore keys, sign-in tokens or proxies
+# that a Terminal session may have set for other tools.
+unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CW_MODEL CW_EFFORT
 
 show() { if command -v open >/dev/null 2>&1; then open "$URL"; else xdg-open "$URL" >/dev/null 2>&1 || echo "$URL"; fi; }
 up() { curl -fsS -m 1 "${URL}healthz" >/dev/null 2>&1; }

@@ -48,6 +48,9 @@ copy carries spelling fixes the Google Sheet may not have).
 - Never invent numbers, results, clients or quotes in scripts; use `{{رقمك}}` placeholders.
 - Nothing is ever posted automatically. The owner records and posts.
 - Run `python -m pytest -q` before committing. Tests use a fake model and need no API key.
-- Model calls go through `src/content_workshop/llm.py` only (default `claude-opus-5-5`, adaptive thinking,
-  structured outputs, server-side refusal fallback).
+- Model calls go through `src/content_workshop/llm.py` only (adaptive thinking, structured outputs).
+  Default model is `claude-haiku-5-5` (the owner's choice, for cost); they switch to Sonnet 5.5 / Opus 5.5 in
+  Settings (saved as `CW_MODEL`). Server-side refusal fallback is sent only for models that support it (not Haiku).
+- The API key is checked with Anthropic before it's saved, and only `Data/.env` counts in the Mac install
+  (the launcher ignores keys/tokens from the Terminal environment).
 - Material adapted from instagram-agent-skill (MIT) is listed in `THIRD_PARTY_NOTICES.md`; keep it updated.

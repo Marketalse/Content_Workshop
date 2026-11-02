@@ -20,6 +20,7 @@ def app(tmp_path):
     return dashboard.App(
         output_dir=tmp_path / "output", log_path=tmp_path / "log.jsonl", sheet_path=sheet,
         pending_path=tmp_path / "pending.csv", env_path=tmp_path / ".env",
+        verify_key=lambda key: None,
         make_committee=lambda wpm, progress: Committee(FakeLLM(), Settings(max_revisions=2), wpm=wpm,
                                                        progress=progress, queue_words=False),
     )

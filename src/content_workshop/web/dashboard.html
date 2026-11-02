@@ -48,6 +48,10 @@ nav .bottom{margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
 .upd .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
 ul.news{margin:8px 0 0;padding-left:18px;font-size:14px}ul.news li{margin:3px 0}
 .kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;font-size:14px}.kv dt{color:var(--muted)}.kv dd{margin:0;overflow-wrap:anywhere}
+.mrow{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.mrow:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.mrow input{accent-color:var(--accent)}
+.mrow .p{margin-left:auto;font-size:13px;color:var(--muted);white-space:nowrap}
 .cover{position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 85%,transparent);display:grid;place-items:center;z-index:30;text-align:center;padding:16px}
 
 main{min-width:0;padding:28px 32px 70px}
@@ -407,7 +411,14 @@ pre.rows{background:var(--bg);border:1px solid var(--line);border-radius:8px;pad
       <div class="card-h"><h3>Anthropic API key</h3><span id="keyState"></span></div>
       <input type="password" id="keyIn" placeholder="sk-ant-api…" autocomplete="off" aria-label="Anthropic API key">
       <p class="hint">Get one at console.anthropic.com → API Keys → Create Key. It's saved only on this computer (in the Data folder) and never uploaded to GitHub.</p>
-      <div class="actions"><button class="btn primary" id="keyBtn">Save key</button><span class="hint">Model: <span id="modelName"></span></span></div>
+      <div class="actions"><button class="btn primary" id="keyBtn">Check and save key</button><span class="hint" id="keyMsg"></span></div>
+      <div id="keyErr"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h3>Model</h3><span class="hint">Price per 1M tokens (input / output)</span></div>
+      <div id="models" class="tpls" style="grid-template-columns:1fr"></div>
+      <p class="hint">Applies to the next drafts you create. Using: <b id="modelName"></b></p>
     </div>
 
     <div class="card" id="updCard">
@@ -500,7 +511,10 @@ async function loadStatus(){
   $("#keyState").innerHTML = STATUS.api_key_set
     ? `<span class="tag good">Key saved ${esc(STATUS.api_key_hint)}</span>`
     : `<span class="tag warn">No key yet</span>`;
-  $("#modelName").textContent = STATUS.model;
+  const cur = (STATUS.models||[]).find(m => m.id === STATUS.model);
+  $("#modelName").textContent = cur ? cur.name : STATUS.model;
+  $("#models").innerHTML = (STATUS.models||[]).map(m => `<label class="mrow"><input type="radio" name="model" value="${esc(m.id)}" ${m.id===STATUS.model?"checked":""}>
+    <span><b>${esc(m.name)}</b><br><span class="hint">${esc(m.note)}</span></span><span class="p">${esc(m.price)}</span></label>`).join("");
   const v = STATUS.version || {};
   $("#verSide").textContent = v.installed ? `Version ${v.date || (v.sha||"").slice(0,7)}` : "Development copy";
   $("#verTxt").textContent = v.installed ? `${v.date || "unknown date"} · ${(v.sha||"").slice(0,7)}${v.branch && v.branch!=="main" ? " · "+v.branch : ""}` : "Development copy (updated with git)";
@@ -764,9 +778,20 @@ $("#ckBtn").onclick = async () => {
 
 /* settings */
 $("#keyBtn").onclick = async () => {
-  try{ await api("/api/key", {key:$("#keyIn").value}); $("#keyIn").value=""; toast("Key saved"); loadStatus(); }
-  catch(e){ toast(e.message); }
+  $("#keyBtn").disabled = true; $("#keyErr").innerHTML = ""; $("#keyMsg").textContent = "Checking the key with Anthropic…";
+  try{
+    await api("/api/key", {key:$("#keyIn").value});
+    $("#keyIn").value = ""; $("#keyMsg").textContent = ""; toast("Key works and is saved"); loadStatus();
+  }catch(e){
+    $("#keyMsg").textContent = "";
+    $("#keyErr").innerHTML = `<div class="notice bad" style="margin:12px 0 0">${esc(e.message)}</div>`;
+  }
+  $("#keyBtn").disabled = false;
 };
+$("#models").addEventListener("change", async e => {
+  try{ await api("/api/model", {model:e.target.value}); await loadStatus(); toast("Model changed to " + $("#modelName").textContent); }
+  catch(err){ toast(err.message); loadStatus(); }
+});
 
 /* updates */
 let UPD = null;
